@@ -7,31 +7,43 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
-// Initialize AI
+// Initialize the Google Generative AI
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+
+// THE STAFF BRAIN (Merged into the prompt)
+const STAFF_CONTEXT = `
+You are the official Staff AI for DesignPRO. 
+- Your boss is Anderson (the Lead Architect).
+- Services: Graphics, Billboards, Web/App Dev, and Motion Graphics.
+- Tone: Professional, futuristic, and helpful. 
+- Location: Ghana.
+`;
 
 app.get('/', (req, res) => res.send("DesignPRO Backend is Running! 🚀"));
 
 app.post('/api/chat', async (req, res) => {
     try {
         const userInput = req.body.prompt || req.body.message;
-        console.log("Processing message for Anderson...");
 
-        // SWITCHING TO 'gemini-pro' - It is the most stable model 
-        // and works perfectly with the instructions we want.
-        const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+        if (!userInput) {
+            return res.status(400).json({ reply: "Signal lost. Please re-type." });
+        }
 
-        const staffPrompt = `You are the Lead Brand AI for DesignPRO. Anderson is your boss. Use a professional, futuristic tone. \n\nUser Question: ${userInput}`;
+        // NO 'systemInstruction' here - this keeps us on the STABLE API
+        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
-        const result = await model.generateContent(staffPrompt);
-        const response = await result.response;
-        const text = response.text();
+        // We combine context and user input into one string
+        const finalPrompt = `${STAFF_CONTEXT}\n\nUser asked: ${userInput}\n\nStaff Response:`;
+
+        const result = await model.generateContent(finalPrompt);
+        const text = result.response.text();
         
+        console.log("AI Answered Anderson's client!");
         res.json({ reply: text });
+
     } catch (error) {
-        console.error("AI Error:", error.message);
-        // If gemini-pro fails, we try a secondary backup name
-        res.status(500).json({ reply: "Connection interference. Anderson's neural link is busy. Please try one more time." });
+        console.error("LOGS ERROR:", error.message);
+        res.status(500).json({ reply: "The neural link is experiencing heavy traffic. Please try one more time!" });
     }
 });
 

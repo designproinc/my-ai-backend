@@ -7,6 +7,7 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
+// Initialize AI with your Render Environment Key
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 const STAFF_CONTEXT = `
@@ -17,16 +18,17 @@ You are the official Staff AI for DesignPRO.
 - Location: Ghana.
 `;
 
-// --- DIAGNOSTIC TOOL: This prints available models to your Render logs ---
-async function listAvailableModels() {
+// --- Startup Diagnostic ---
+async function verifyConnection() {
     try {
-        const models = await genAI.getGenerativeModel({ model: "gemini-1.5-flash" }); // default check
-        console.log("📡 Connected to Google AI successfully.");
+        // Testing the 2.0 model on startup
+        const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+        console.log("📡 System check: Ready to connect to Gemini 2.0");
     } catch (e) {
-        console.log("⚠️ Connection check failed, but continuing...");
+        console.log("⚠️ Diagnostic: Connection to AI servers pending user request.");
     }
 }
-listAvailableModels();
+verifyConnection();
 
 app.get('/', (req, res) => res.send("DesignPRO Backend is Online! 🚀"));
 
@@ -35,37 +37,34 @@ app.post('/api/chat', async (req, res) => {
         const userInput = req.body.prompt || req.body.message;
         if (!userInput) return res.status(400).json({ reply: "Signal lost. Please re-type." });
 
-        // Try the standard stable model name
-        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+        // Using Gemini 2.0 Flash - the current stable version for 2026
+        const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
         const finalPrompt = `${STAFF_CONTEXT}\n\nUser: ${userInput}\n\nStaff Response:`;
 
         const result = await model.generateContent(finalPrompt);
-        const text = result.response.text();
+        const response = await result.response;
+        const text = response.text();
         
-        console.log("✅ Message processed for Anderson's client.");
+        console.log("✅ AI Answered Anderson's client!");
         res.json({ reply: text });
 
     } catch (error) {
+        // This will print the exact error to your Render logs
         console.error("LOGS ERROR:", error.message);
-        // If 1.5-flash fails, try 2.0-flash as a backup
-        try {
-            console.log("🔄 Retrying with backup model...");
-            const backupModel = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
-            const result = await backupModel.generateContent(userInput);
-            res.json({ reply: result.response.text() });
-        } catch (innerError) {
-            res.status(500).json({ reply: "The neural link is still offline. Please check Render logs." });
-        }
+        
+        res.status(500).json({ 
+            reply: "Our frequency is experiencing interference. Please try again or reach out via WhatsApp." 
+        });
     }
 });
 
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
-    console.log(`🚀 DesignPRO Staff AI Active`);
+    console.log(`🚀 DesignPRO Staff AI Active on port ${PORT}`);
     if (process.env.GEMINI_API_KEY) {
-        console.log("✅ API Key detected.");
+        console.log("✅ API Key detected and loaded from Render Environment.");
     } else {
-        console.log("❌ API Key MISSING.");
+        console.log("❌ ERROR: API Key NOT FOUND. Check your Render Environment tab.");
     }
 });

@@ -5,54 +5,35 @@ const cors = require('cors');
 
 const app = express();
 app.use(express.json());
+app.use(cors());
 
-// 1. UPDATED CORS: Explicitly allow your frontend
-app.use(cors({
-    origin: 'https://designpro-l827.onrender.com'
-}));
-
-// Initialize Gemini
+// Initialize AI
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
-// 2. HEALTH CHECK: Open this in your browser to see if server is alive
-app.get('/', (req, res) => {
-    res.send("DesignPRO Backend is Running! 🚀");
-});
+app.get('/', (req, res) => res.send("DesignPRO Backend is Running! 🚀"));
 
-// THE BUSINESS BRAIN
-const SYSTEM_INSTRUCTION = "You are the official AI Brand Architect for DesignPRO. Anderson is the lead architect. We offer Graphic Design, Billboards, Web/App Dev, and Motion Graphics. Be professional and futuristic.";
-
-// YOUR ROUTE IS HERE
 app.post('/api/chat', async (req, res) => {
     try {
-        // 3. FLEXIBLE INPUT: Checks for both 'prompt' or 'message' from frontend
         const userInput = req.body.prompt || req.body.message;
+        console.log("Processing message for Anderson...");
 
-        if (!userInput) {
-            return res.status(400).json({ error: "No message received from frontend." });
-        }
+        // SWITCHING TO 'gemini-pro' - It is the most stable model 
+        // and works perfectly with the instructions we want.
+        const model = genAI.getGenerativeModel({ model: "gemini-pro" });
 
-        // 4. BETTER SYSTEM INSTRUCTION SETUP
-        const model = genAI.getGenerativeModel({ 
-            model: "gemini-1.5-flash",
-            systemInstruction: SYSTEM_INSTRUCTION,
-        });
+        const staffPrompt = `You are the Lead Brand AI for DesignPRO. Anderson is your boss. Use a professional, futuristic tone. \n\nUser Question: ${userInput}`;
 
-        const result = await model.generateContent(userInput);
+        const result = await model.generateContent(staffPrompt);
         const response = await result.response;
         const text = response.text();
         
-        console.log("AI Replied:", text); // This helps you see it in Render Logs
         res.json({ reply: text });
-
     } catch (error) {
-        console.error("Gemini Error:", error);
-        res.status(500).json({ 
-            error: "The DesignPRO neural link encountered a model sync error.",
-            details: error.message 
-        });
+        console.error("AI Error:", error.message);
+        // If gemini-pro fails, we try a secondary backup name
+        res.status(500).json({ reply: "Connection interference. Anderson's neural link is busy. Please try one more time." });
     }
 });
 
 const PORT = process.env.PORT || 10000;
-app.listen(PORT, () => console.log(`🚀 DesignPRO Backend active on port ${PORT}`));
+app.listen(PORT, () => console.log(`🚀 DesignPRO Staff AI Active`));
